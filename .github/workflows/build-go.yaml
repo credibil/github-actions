@@ -1,0 +1,177 @@
+# Builds a docker image, publishes it to GitHub's docker repo (ghcr.io).
+# The workflow will only run if commit message contains [tag:patch|minor|major]
+
+# See: https://docs.github.com/en/enterprise-cloud@latest/actions/using-workflows/reusing-workflows
+
+name: Build Go container
+
+on:
+  workflow_call:
+    outputs:
+      tag:
+        description: The git tag for the build
+        value: ${{ jobs.image.outputs.tag }}
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      tag: ${{ steps.curr-tag.outputs.result }}
+
+    # run unless explicitly skipped (commit message contains [skip])
+    if: |
+      !contains(github.event.head_commit.message, '[skip]')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # most recent release
+      - name: Latest release
+        id: prev-tag
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const resp = await github.rest.repos.getLatestRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            })
+            return resp.data.tag_name
+          result-encoding: string
+
+      # check for breaking changes in protos
+      - name: Fail when breaking proto change
+        if: |
+          !(contains(steps.prev-tag.outputs.result, 'alpha') ||
+          contains(github.event.head_commit.message, '[breaking]'))
+        uses: bufbuild/buf-breaking-action@v1
+        with:
+          against: https://github.com/${{ github.repository }}.git#tag=${{ steps.prev-tag.outputs.result }}
+          buf_token: ${{ secrets.BUF_PAT }}
+
+      #  lint proto files
+      - name: Lint protos
+        uses: bufbuild/buf-lint-action@v1
+        with:
+          input: proto
+          buf_token: ${{ secrets.BUF_PAT }}
+
+      # buf push --tag <TAG_NAME>
+      - name: Push to Buf Schema Registry
+        uses: bufbuild/buf-push-action@v1
+        with:
+          input: proto
+          buf_token: ${{ secrets.BUF_PAT }}
+
+      # increment repo version tag
+      - run: npm install semver json-diff
+      - name: Increment version
+        id: curr-tag
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const jsonDiff = require('json-diff')
+            const semver = require('semver')
+
+            const getProtoJson = async (version) => {
+              await exec.exec('buf', ['build', version, '--exclude-imports', '--exclude-source-info', '-o', '-#format=json'], {
+                listeners: {stdout: (data) => { 
+                  return data.toJSON()
+                }}
+              })
+            }
+
+            const latestTag = '${{ steps.prev-tag.outputs.result }}'
+
+            const increment = async () => {
+              if (semver.prerelease(latestTag)){
+                return 'prerelease'
+              }
+              
+              // check for proto changes
+              const latestRelease = `https://${{ secrets.ACTIONS_TOKEN }}@github.com/${{ github.repository }}.git#tag=${latestTag}`
+              const currProto = await getProtoJson('.')
+              const prevProto = await getProtoJson(latestRelease)
+
+              if (jsonDiff.diff(currProto, prevProto, { sort: true })) {
+                return 'patch'
+              }
+              return 'minor'
+            }
+            return `v${semver.inc(latestTag, await increment())}`
+          result-encoding: string
+
+      # unit tests
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ">=1.18.0"
+
+      - name: Run unit tests
+        env:
+          # use env vars to write unmasked secrets to .netrc file
+          BUF_USER: ${{ secrets.BUF_USER }}
+          BUF_PAT: ${{ secrets.BUF_PAT }}
+          GH_USER: ${{ secrets.ACTIONS_USER }}
+          GH_PAT: ${{ secrets.ACTIONS_TOKEN }}
+        run: |
+          echo "machine github.com login $GH_USER password $GH_PAT" >> ~/.netrc
+          echo "machine buf.build login $BUF_USER password $BUF_PAT" >> ~/.netrc
+          go env -w GOPRIVATE="github.com/${{ github.repository_owner }}/*"
+          go mod download
+          go test -v ./...
+
+      # set up docker buildx
+      - uses: docker/setup-qemu-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # log in to GitHub packages (ghcr.io)
+      - name: Log in to GitHub container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # build docker image and push to ghcr.io
+      - name: Build and push image
+        uses: docker/build-push-action@v3
+        with:
+          # context: .
+          build-args: |
+            BUF_USER=${{ secrets.BUF_USER }}
+            BUF_PAT=${{ secrets.BUF_PAT }}
+            GH_USER=${{ secrets.ACTIONS_USER }}
+            GH_PAT=${{ secrets.ACTIONS_TOKEN }}
+            GH_ORG=${{ github.repository_owner }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.curr-tag.outputs.result }}
+            ghcr.io/${{ github.repository }}:latest
+
+      # create release (incl. underlying tag)
+      - name: Create release
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const semver = require('semver')
+            const tag = '${{ steps.curr-tag.outputs.result }}'
+
+            github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              prerelease: false
+              // prerelease: semver.prerelease(tag)?.length > 0
+            })

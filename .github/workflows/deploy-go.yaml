@@ -1,0 +1,102 @@
+# Deploys the specified docker image as a Container App.
+
+# https://docs.github.com/en/enterprise-cloud@latest/actions/using-workflows/reusing-workflows
+
+name: Deploy Container App
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      tag:
+        required: true
+        type: string
+      api-backends:
+        type: string
+        description: |
+          A comma separated list of custom API backend names.
+          Not required if using the default backend name (repo name)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Set env
+        id: env
+        uses: actions/github-script@v6
+        with:
+          script: |
+            switch('${{ inputs.environment }}') {
+              case 'staging':
+                return "stg"
+              case 'production':
+                return "prd"
+              default:
+                return "dev"
+            }
+          result-encoding: string
+
+      - run: npm install semver
+
+      - name: Get major version
+        id: version
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const semver = require('semver')
+            return `v${semver.major('${{ inputs.tag }}')}`
+          result-encoding: string
+
+      - uses: actions/checkout@v3
+
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # HACK: use az cli to deploy bicep until azure/arm-deploy supports --template-spec
+      - name: Deploy Container App
+        run: |
+          echo ca_outputs=$(az deployment group create \
+            --name "${{ github.event.repository.name }}" \
+            --resource-group "app-ticc-${{ steps.env.outputs.result }}-ae-rg" \
+            --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            --template-spec "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/app-ticc-${{ steps.env.outputs.result }}-ae-rg/providers/Microsoft.Resources/templateSpecs/ts-container-app/versions/1.0" \
+            --parameters "env=${{ steps.env.outputs.result }}" \
+            --parameters "appName=${{ github.event.repository.name }}" \
+            --parameters "imageTag=ghcr.io/${{ github.repository }}:${{ inputs.tag }}" \
+            --parameters "ghcrUser=${{ secrets.GHCR_USER }}" \
+            --parameters "ghcrPat=${{ secrets.GHCR_PAT }}" \
+            --query properties.outputs) >> $GITHUB_ENV
+
+      - name: API backend params
+        id: backend
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const outputs = JSON.parse('${{ env.ca_outputs }}')
+            let params = `backendNames=${'${{ inputs.api-backends }}' || '${{ github.event.repository.name }}'}`
+            params += ` containerAppId=${outputs.containerAppId.value}`
+            params += ` containerAppFqdn=${outputs.containerAppFqdn.value}`
+            return params
+          result-encoding: string
+
+      - name: Deploy API backend
+        run: |
+          az deployment group create \
+            --name ${{ github.event.repository.name }} \
+            --resource-group "app-ticc-${{ steps.env.outputs.result }}-ae-rg" \
+            --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
+            --template-spec "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/app-ticc-${{ steps.env.outputs.result }}-ae-rg/providers/Microsoft.Resources/templateSpecs/ts-api-backend/versions/1.0" \
+            --parameters "env=${{ steps.env.outputs.result }}" \
+            --parameters ${{ steps.backend.outputs.result }}
+
