@@ -5,13 +5,13 @@
 @description('Location of the Container Apps environment')
 param location string = resourceGroup().location
 
-@allowed([
-  'dev'
-  'stg'
-  'prd'
-])
-@description('Environment short name')
-param env string
+// @allowed([
+//   'dev'
+//   'stg'
+//   'prd'
+// ])
+@description('Container Apps environment')
+param appEnv string
 
 @description('Container App HTTP port')
 param appName string
@@ -31,19 +31,19 @@ param ghcrUser string
 param ghcrPat string
 
 // get a reference to the container apps environment
-resource managedEnv 'Microsoft.App/managedEnvironments@2022-01-01-preview' existing = {
-  name: 'cae-ticc-${env}'
+resource managedEnv 'Microsoft.App/managedEnvironments@2022-06-01-preview' existing = {
+  name: 'cae-${appEnv}'
 }
 
 // get a reference to the container apps environment
 resource managedId 'Microsoft.ManagedIdentity/userAssignedIdentities@2022-01-31-preview' existing = {
-  name: 'id-ticc-${env}'
+  name: 'id-${appEnv}'
 }
 
 // -----------------------------
 // Deploy Container App
 // -----------------------------
-resource containerApp 'Microsoft.App/containerApps@2022-01-01-preview' = {
+resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
   name: 'ca-${appName}'
   location: location
   identity: {
@@ -53,7 +53,7 @@ resource containerApp 'Microsoft.App/containerApps@2022-01-01-preview' = {
     }
   }
   properties: {
-    managedEnvironmentId: managedEnv.id
+    environmentId: managedEnv.id
     configuration: {
       activeRevisionsMode: 'single'
       dapr: {
@@ -61,6 +61,7 @@ resource containerApp 'Microsoft.App/containerApps@2022-01-01-preview' = {
         appPort: 8080
         appProtocol: 'http'
         enabled: true
+        enableApiLogging: false
       }
       ingress: {
         external: true
@@ -72,6 +73,14 @@ resource containerApp 'Microsoft.App/containerApps@2022-01-01-preview' = {
             weight: 100
           }
         ]
+        // ipSecurityRestrictions: [
+        //   {
+        //     action: 'string'
+        //     description: 'string'
+        //     ipAddressRange: 'string'
+        //     name: 'string'
+        //   }
+        // ]
       }
       registries: [
         {

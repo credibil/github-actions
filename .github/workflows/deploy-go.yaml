@@ -26,23 +26,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      GLOBAL_SUB: 3ecd0416-e32b-49ef-92e0-5728b0951ba8
 
     steps:
-      - name: Set env
-        id: env
-        uses: actions/github-script@v6
-        with:
-          script: |
-            switch('${{ inputs.environment }}') {
-              case 'staging':
-                return "stg"
-              case 'production':
-                return "prd"
-              default:
-                return "dev"
-            }
-          result-encoding: string
-
       - run: npm install semver
 
       - name: Get major version
@@ -68,10 +55,10 @@ jobs:
         run: |
           echo ca_outputs=$(az deployment group create \
             --name "${{ github.event.repository.name }}" \
-            --resource-group "app-ticc-${{ steps.env.outputs.result }}-ae-rg" \
+            --resource-group "rg-credibil-${{ inputs.app-env }}" \
             --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            --template-spec "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/app-ticc-${{ steps.env.outputs.result }}-ae-rg/providers/Microsoft.Resources/templateSpecs/ts-container-app/versions/1.0" \
-            --parameters "env=${{ steps.env.outputs.result }}" \
+            --template-spec "/subscriptions/${{ env.GLOBAL_SUB }}/resourceGroups/rg-credibil-tools/providers/Microsoft.Resources/templateSpecs/ts-container-app/versions/1.0" \
+            --parameters "appEnv=${{ inputs.app-env }}" \
             --parameters "appName=${{ github.event.repository.name }}" \
             --parameters "imageTag=ghcr.io/${{ github.repository }}:${{ inputs.tag }}" \
             --parameters "ghcrUser=${{ secrets.GHCR_USER }}" \
@@ -94,9 +81,7 @@ jobs:
         run: |
           az deployment group create \
             --name ${{ github.event.repository.name }} \
-            --resource-group "app-ticc-${{ steps.env.outputs.result }}-ae-rg" \
+            --resource-group "rg-credibil-${{ inputs.app-env }}" \
             --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
-            --template-spec "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/app-ticc-${{ steps.env.outputs.result }}-ae-rg/providers/Microsoft.Resources/templateSpecs/ts-api-backend/versions/1.0" \
-            --parameters "env=${{ steps.env.outputs.result }}" \
+            --template-spec "/subscriptions/${{ env.GLOBAL_SUB }}/resourceGroups/rg-credibil-tools/providers/Microsoft.Resources/templateSpecs/ts-api-backend/versions/1.0" \
             --parameters ${{ steps.backend.outputs.result }}
-
