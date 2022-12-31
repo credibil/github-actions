@@ -21,7 +21,7 @@ param containerAppFqdn string
 
 // get reference to API manager
 resource apiManager 'Microsoft.ApiManagement/service@2021-08-01' existing = {
-  name: 'apim-ticc-${env}'
+  name: 'apim-credibil-${env}'
 }
 
 // create backend for service

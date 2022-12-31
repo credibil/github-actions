@@ -49,7 +49,7 @@ jobs:
           client-id: ${{ secrets.AZ_CLIENT_ID }}
           tenant-id: ${{ secrets.AZ_TENANT_ID }}
           allow-no-subscriptions: true
-          
+
 
       # HACK: use az cli to deploy bicep until azure/arm-deploy supports --template-spec
       - name: Deploy Container App
@@ -78,11 +78,11 @@ jobs:
             return params
           result-encoding: string
 
-      - name: Deploy API backend
-        run: |
-          az deployment group create \
-            --name ${{ github.event.repository.name }} \
-            --resource-group "rg-credibil-${{ inputs.environment }}" \
-            --subscription ${{ secrets.AZ_SUBSCRIPTION_ID }} \
-            --template-spec "/subscriptions/${{ env.GLOBAL_SUB }}/resourceGroups/rg-credibil-tools/providers/Microsoft.Resources/templateSpecs/ts-api-backend/versions/1.0" \
-            --parameters ${{ steps.backend.outputs.result }}
+      # - name: Deploy API backend
+      #   run: |
+      #     az deployment group create \
+      #       --name ${{ github.event.repository.name }} \
+      #       --resource-group "rg-credibil-${{ inputs.environment }}" \
+      #       --subscription ${{ secrets.AZ_SUBSCRIPTION_ID }} \
+      #       --template-spec "/subscriptions/${{ env.GLOBAL_SUB }}/resourceGroups/rg-credibil-tools/providers/Microsoft.Resources/templateSpecs/ts-api-backend/versions/1.0" \
+      #       --parameters ${{ steps.backend.outputs.result }}
