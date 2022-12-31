@@ -55,10 +55,10 @@ jobs:
         run: |
           echo ca_outputs=$(az deployment group create \
             --name "${{ github.event.repository.name }}" \
-            --resource-group "rg-credibil-${{ inputs.app-env }}" \
+            --resource-group "rg-credibil-${{ inputs.environment }}" \
             --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
             --template-spec "/subscriptions/${{ env.GLOBAL_SUB }}/resourceGroups/rg-credibil-tools/providers/Microsoft.Resources/templateSpecs/ts-container-app/versions/1.0" \
-            --parameters "appEnv=${{ inputs.app-env }}" \
+            --parameters "appEnv=${{ inputs.environment }}" \
             --parameters "appName=${{ github.event.repository.name }}" \
             --parameters "imageTag=ghcr.io/${{ github.repository }}:${{ inputs.tag }}" \
             --parameters "ghcrUser=${{ secrets.GHCR_USER }}" \
@@ -81,7 +81,7 @@ jobs:
         run: |
           az deployment group create \
             --name ${{ github.event.repository.name }} \
-            --resource-group "rg-credibil-${{ inputs.app-env }}" \
+            --resource-group "rg-credibil-${{ inputs.environment }}" \
             --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
             --template-spec "/subscriptions/${{ env.GLOBAL_SUB }}/resourceGroups/rg-credibil-tools/providers/Microsoft.Resources/templateSpecs/ts-api-backend/versions/1.0" \
             --parameters ${{ steps.backend.outputs.result }}
