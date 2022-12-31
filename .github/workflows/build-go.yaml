@@ -101,7 +101,13 @@ jobs:
               // check for proto changes
               const latestRelease = `https://${{ secrets.REPO_TOKEN }}@github.com/${{ github.repository }}.git#tag=${latestTag}`
               const currProto = await getProtoJson('.')
-              const prevProto = await getProtoJson(latestRelease)
+              # const prevProto = await getProtoJson(latestRelease)
+              let prevProto
+              try {
+                prevProto = await getProtoJson(latestRelease)
+              } catch (e) {
+                return 'minor'
+              }
 
               if (jsonDiff.diff(currProto, prevProto, { sort: true })) {
                 return 'patch'
