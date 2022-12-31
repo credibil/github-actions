@@ -62,7 +62,7 @@ jobs:
             --parameters "appName=${{ github.event.repository.name }}" \
             --parameters "imageTag=ghcr.io/${{ github.repository }}:${{ inputs.tag }}" \
             --parameters "ghcrUser=${{ secrets.GHCR_USER }}" \
-            --parameters "ghcrPat=${{ secrets.GHCR_PAT }}" \
+            --parameters "ghcrPat=${{ secrets.GHCR_TOKEN }}" \
             --query properties.outputs) >> $GITHUB_ENV
 
       - name: API backend params

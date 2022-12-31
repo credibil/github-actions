@@ -57,21 +57,21 @@ jobs:
         uses: bufbuild/buf-breaking-action@v1
         with:
           against: https://github.com/${{ github.repository }}.git#tag=${{ steps.prev-tag.outputs.result }}
-          buf_token: ${{ secrets.BUF_PAT }}
+          buf_token: ${{ secrets.BUF_TOKEN }}
 
       #  lint proto files
       - name: Lint protos
         uses: bufbuild/buf-lint-action@v1
         with:
           input: proto
-          buf_token: ${{ secrets.BUF_PAT }}
+          buf_token: ${{ secrets.BUF_TOKEN }}
 
       # buf push --tag <TAG_NAME>
       - name: Push to Buf Schema Registry
         uses: bufbuild/buf-push-action@v1
         with:
           input: proto
-          buf_token: ${{ secrets.BUF_PAT }}
+          buf_token: ${{ secrets.BUF_TOKEN }}
 
       # increment repo version tag
       - run: npm install semver json-diff
@@ -99,7 +99,7 @@ jobs:
               }
               
               // check for proto changes
-              const latestRelease = `https://${{ secrets.ACTIONS_TOKEN }}@github.com/${{ github.repository }}.git#tag=${latestTag}`
+              const latestRelease = `https://${{ secrets.REPO_TOKEN }}@github.com/${{ github.repository }}.git#tag=${latestTag}`
               const currProto = await getProtoJson('.')
               const prevProto = await getProtoJson(latestRelease)
 
@@ -121,9 +121,9 @@ jobs:
         env:
           # use env vars to write unmasked secrets to .netrc file
           BUF_USER: ${{ secrets.BUF_USER }}
-          BUF_PAT: ${{ secrets.BUF_PAT }}
-          GH_USER: ${{ secrets.ACTIONS_USER }}
-          GH_PAT: ${{ secrets.ACTIONS_TOKEN }}
+          BUF_PAT: ${{ secrets.BUF_TOKEN }}
+          GH_USER: ${{ secrets.REPO_USER }}
+          GH_PAT: ${{ secrets.REPO_TOKEN }}
         run: |
           echo "machine github.com login $GH_USER password $GH_PAT" >> ~/.netrc
           echo "machine buf.build login $BUF_USER password $BUF_PAT" >> ~/.netrc
@@ -151,9 +151,9 @@ jobs:
           # context: .
           build-args: |
             BUF_USER=${{ secrets.BUF_USER }}
-            BUF_PAT=${{ secrets.BUF_PAT }}
-            GH_USER=${{ secrets.ACTIONS_USER }}
-            GH_PAT=${{ secrets.ACTIONS_TOKEN }}
+            BUF_PAT=${{ secrets.BUF_TOKEN }}
+            GH_USER=${{ secrets.REPO_USER }}
+            GH_PAT=${{ secrets.REPO_TOKEN }}
             GH_ORG=${{ github.repository_owner }}
           push: true
           tags: |
