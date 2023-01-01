@@ -30,6 +30,9 @@ param ghcrUser string
 @description('GitHub container registry personal access token')
 param ghcrPat string
 
+@description('Custom param list for the container app')
+param appParams string = ''
+
 // get a reference to the container apps environment
 resource managedEnv 'Microsoft.App/managedEnvironments@2022-06-01-preview' existing = {
   name: 'cae-${appEnv}'
@@ -39,6 +42,13 @@ resource managedEnv 'Microsoft.App/managedEnvironments@2022-06-01-preview' exist
 resource managedId 'Microsoft.ManagedIdentity/userAssignedIdentities@2022-01-31-preview' existing = {
   name: 'id-${appEnv}'
 }
+
+// var envVars = [for v in split(appParams, ','): {
+//   {
+//     name: split(v, '=')[0]
+//     value: split(v, '=')[1]
+//   }
+// }]
 
 // -----------------------------
 // Deploy Container App
@@ -105,6 +115,10 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
             cpu: any('0.5')
             memory: '1Gi'
           }
+          env: [for v in split(appParams, ','): {
+            name: split(v, '=')[0]
+            value: split(v, '=')[1]
+          }]
         }
       ]
       scale: {

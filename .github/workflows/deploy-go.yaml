@@ -13,6 +13,12 @@ on:
       release:
         required: true
         type: string
+      params:
+        required: false
+        type: string
+        description: |
+          A comma separated list of key=value pairs to be passed to the Container App deployment.
+          Example: "param1=value1,param2=value2"
       api-backends:
         type: string
         description: |
@@ -50,7 +56,6 @@ jobs:
           tenant-id: ${{ secrets.AZ_TENANT_ID }}
           allow-no-subscriptions: true
 
-
       # HACK: use az cli to deploy bicep until azure/arm-deploy supports --template-spec
       - name: Deploy Container App
         run: |
@@ -64,6 +69,7 @@ jobs:
             --parameters "imageTag=ghcr.io/${{ github.repository }}:${{ inputs.release }}" \
             --parameters "ghcrUser=${{ secrets.GHCR_USER }}" \
             --parameters "ghcrPat=${{ secrets.GHCR_TOKEN }}" \
+            --parameters "appParams=${{ inputs.params }}" \
             --query properties.outputs) >> $GITHUB_ENV
 
       - name: API backend params
