@@ -10,7 +10,7 @@ on:
       environment:
         required: true
         type: string
-      tag:
+      release:
         required: true
         type: string
       api-backends:
@@ -38,7 +38,7 @@ jobs:
         with:
           script: |
             const semver = require('semver')
-            return `v${semver.major('${{ inputs.tag }}')}`
+            return `v${semver.major('${{ inputs.release }}')}`
           result-encoding: string
 
       - uses: actions/checkout@v3
@@ -61,7 +61,7 @@ jobs:
             --template-spec "/subscriptions/${{ env.GLOBAL_SUB }}/resourceGroups/rg-credibil-tools/providers/Microsoft.Resources/templateSpecs/ts-container-app/versions/1.0" \
             --parameters "appEnv=${{ inputs.environment }}" \
             --parameters "appName=${{ github.event.repository.name }}" \
-            --parameters "imageTag=ghcr.io/${{ github.repository }}:${{ inputs.tag }}" \
+            --parameters "imageTag=ghcr.io/${{ github.repository }}:${{ inputs.release }}" \
             --parameters "ghcrUser=${{ secrets.GHCR_USER }}" \
             --parameters "ghcrPat=${{ secrets.GHCR_TOKEN }}" \
             --query properties.outputs) >> $GITHUB_ENV
