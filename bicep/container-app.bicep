@@ -43,13 +43,6 @@ resource managedId 'Microsoft.ManagedIdentity/userAssignedIdentities@2022-01-31-
   name: 'id-${appEnv}'
 }
 
-// var envVars = [for v in split(appParams, ','): {
-//   {
-//     name: split(v, '=')[0]
-//     value: split(v, '=')[1]
-//   }
-// }]
-
 // -----------------------------
 // Deploy Container App
 // -----------------------------
@@ -116,8 +109,8 @@ resource containerApp 'Microsoft.App/containerApps@2022-06-01-preview' = {
             memory: '1Gi'
           }
           env: [for v in split(appParams, ','): {
-            name: split(v, '=')[0]
-            value: split(v, '=')[1]
+            name: trim(split(v, '=')[0])
+            value: trim(split(v, '=')[1])
           }]
         }
       ]
