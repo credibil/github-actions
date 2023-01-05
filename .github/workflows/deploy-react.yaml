@@ -50,7 +50,7 @@ jobs:
 
       - name: npm config
         env:
-          BUF_NPM_TOKEN: ${{ secrets.BUF_NPM_TOKEN }}
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
         run: |
           echo "//buf.build/gen/npm/v1/:_authToken=$BUF_TOKEN" >> .npmrc
 
