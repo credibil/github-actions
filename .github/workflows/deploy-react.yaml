@@ -52,7 +52,7 @@ jobs:
         env:
           BUF_NPM_TOKEN: ${{ secrets.BUF_NPM_TOKEN }}
         run: |
-          echo "//buf.build/gen/npm/v1/:_authToken=$BUF_NPM_TOKEN" >> .npmrc
+          echo "//buf.build/gen/npm/v1/:_authToken=$BUF_TOKEN" >> .npmrc
 
       - name: Deploy
         id: deploy
